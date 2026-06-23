@@ -12,6 +12,8 @@
     { key: 'productLine', label: '产品线' },
     { key: 'genre', label: '风格流派' },
     { key: 'mood', label: '情绪调性' },
+    { key: 'whyPopular', label: '热度原因' },
+    { key: 'targetAudience', label: '受众人群' },
     { key: 'lightColor', label: '光线色调' },
     { key: 'atmosphere', label: '氛围感受' },
     { key: 'rhythmCamera', label: '节奏运镜' },
@@ -25,6 +27,8 @@
 
   const DISPLAY_DIMS = [
     { key: 'mood', label: '情绪' },
+    { key: 'whyPopular', label: '热度' },
+    { key: 'targetAudience', label: '受众' },
     { key: 'atmosphere', label: '氛围' },
     { key: 'productLine', label: '产品线' },
     { key: 'petType', label: '宠物' },
@@ -56,6 +60,8 @@
     }
   }
 
+  const STRING_DIMS = ['whyPopular', 'targetAudience'];
+
   // ===== Build filter tags from data =====
   function buildFilters() {
     // Collect all values per dimension
@@ -65,7 +71,16 @@
     songs.forEach(s => {
       DIMENSIONS.forEach(d => {
         const vals = s[d.key];
-        if (Array.isArray(vals)) vals.forEach(v => dimValues[d.key].add(v));
+        if (!vals) return;
+        if (Array.isArray(vals)) {
+          vals.forEach(v => dimValues[d.key].add(v));
+        } else if (STRING_DIMS.includes(d.key)) {
+          // Split string fields by Chinese/English delimiters
+          vals.split(/[·,，、]/).forEach(v => {
+            const trimmed = v.trim();
+            if (trimmed) dimValues[d.key].add(trimmed);
+          });
+        }
       });
     });
 
@@ -133,7 +148,12 @@
     Object.entries(activeFilters).forEach(([dim, vals]) => {
       if (vals.size === 0) return;
       filtered = filtered.filter(s => {
-        const songVals = s[dim] || [];
+        const songVals = s[dim];
+        if (!songVals) return false;
+        if (Array.isArray(songVals)) {
+          return [...vals].some(v => songVals.includes(v));
+        }
+        // String field: check if any filter value is a substring
         return [...vals].some(v => songVals.includes(v));
       });
     });
@@ -206,8 +226,10 @@
 
       const dimRows = DISPLAY_DIMS.map(d => {
         const vals = s[d.key];
-        if (!vals || vals.length === 0) return '';
-        return `<span class="dim-label">${d.label}</span><span class="dim-value">${vals.join(' · ')}</span>`;
+        if (!vals) return '';
+        if (Array.isArray(vals) && vals.length === 0) return '';
+        const display = Array.isArray(vals) ? vals.join(' · ') : vals;
+        return `<span class="dim-label">${d.label}</span><span class="dim-value">${display}</span>`;
       }).filter(Boolean).join('');
 
       return `<div class="song-card">
